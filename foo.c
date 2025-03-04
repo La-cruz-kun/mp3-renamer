@@ -1,66 +1,34 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <wchar.h>
+#include <locale.h>
 
-#define HEADER_SIZE 10
+void print_text(unsigned char *data, int size) {
+    setlocale(LC_ALL, "");  // Use UTF-8 Locale
+    unsigned char encoding = data[0];
 
-unsigned int syncsafe_to_int(unsigned char *bytes) {
-    return (bytes[0] << 21) | (bytes[1] << 14) | (bytes[2] << 7) | bytes[3];
-}
+    if (encoding == 0x01) {  // UTF-16 with BOM
+        wchar_t *wstr = (wchar_t *)(data + 1);
 
-void read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
-    unsigned int frame_start = ftell(file);
-    while (ftell(file) < tag_size + HEADER_SIZE) {
-      char frame_header[10];
-      fread(frame_header, 1, 10, file);
-
-      if (strncmp(frame_header, frame_id, 4) == 0) {
-          unsigned int frame_size = syncsafe_to_int((unsigned char *)frame_header + 4);
-          printf("%s: ", frame_id);
-
-          char *data = malloc(frame_size + 1);
-          fread(data, 1, frame_size, file);
-          data[frame_size] = '\0';
-
-          // Skip encoding byte
-          printf("%s\n", data + 1);
-          free(data);
-      } else {
-          // Seek to next frame
-          unsigned int frame_size = syncsafe_to_int((unsigned char *)frame_header + 4);
-          fseek(file, frame_size, SEEK_CUR);
-      }
+        // Strip BOM if present
+        if (wstr[0] == 0xFEFF || wstr[0] == 0xFFFE) {
+            wstr++;
+        }
+        wprintf(L"%ls\n", wstr);  // Print Unicode Text
     }
-    fseek(file, frame_start, SEEK_SET);
-}
-
-void read_id3v2(const char *filename) {
-    FILE *file = fopen(filename, "rb");
-    if (!file) {
-        perror("File open error");
-        return;
+    else if (encoding == 0x03) {  // UTF-8
+        wprintf(L"%s\n", data + 1);
     }
-
-    char header[HEADER_SIZE];
-    fread(header, 1, HEADER_SIZE, file);
-
-    if (strncmp(header, "ID3", 3) != 0) {
-        printf("No ID3v2 metadata found\n");
-        fclose(file);
-        return;
+    else {
+        wprintf(L"Unknown Encoding\n");
     }
-
-    unsigned int tag_size = syncsafe_to_int((unsigned char *)header + 6);
-    printf("Tag Size: %u bytes\n", tag_size);
-
-    read_frame(file, "TIT2", tag_size);  // Title
-    read_frame(file, "TALB", tag_size);
-    read_frame(file, "TPE1", tag_size);  // Artist
-
-    fclose(file);
 }
 
 int main() {
-    read_id3v2("music.mp3");
+    unsigned char japanese[] = {0x01, 0xFF, 0xFE, 0xCF, 0x30, 0x6B, 0x30, 0x4F, 0x30, 0};  // "サンプル" (Sample)
+    
+    wprintf(L"Japanese Title: ");
+    print_text(japanese, sizeof(japanese));
+
     return 0;
 }

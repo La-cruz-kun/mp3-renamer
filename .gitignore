@@ -1,2 +1,7 @@
 *.mp3
+test
+foo
 main
+foo.c
+test.c
+*.txt

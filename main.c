@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
+#include <locale.h>
 
 #define HEADER_SIZE 10
 
@@ -18,12 +20,20 @@ void read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
           unsigned int frame_size = syncsafe_to_int((unsigned char *)frame_header + 4);
           printf("%s: ", frame_id);
 
-          char *data = malloc(frame_size + 1);
+          unsigned char *data = malloc(frame_size + 1);
           fread(data, 1, frame_size, file);
           data[frame_size] = '\0';
 
           // Skip encoding byte
-          printf("%s\n", data + 1);
+          if (data[0] == 0x03) {
+            printf("%s\n", data + 1);
+          }else if (data[0] == 0x01) {
+            wchar_t * wdata = (wchar_t *) data + 1;
+            wprintf(L"%ls\n", wdata);
+          } else {
+            printf("%s\n", data + 1);
+          }
+
           free(data);
       } else {
           // Seek to next frame
@@ -41,6 +51,7 @@ void read_id3v2(const char *filename) {
         return;
     }
 
+    setlocale(LC_ALL, "");
     char header[HEADER_SIZE];
     fread(header, 1, HEADER_SIZE, file);
 
@@ -61,6 +72,6 @@ void read_id3v2(const char *filename) {
 }
 
 int main() {
-    read_id3v2("music.mp3");
+    read_id3v2("music4.mp3");
     return 0;
 }
