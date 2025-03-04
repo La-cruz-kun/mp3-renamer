@@ -8,13 +8,13 @@
 unsigned char Title[100];
 unsigned char Album[100];
 unsigned char Artist[100];
+unsigned char Value[100] = {0};
 
 unsigned int syncsafe_to_int(unsigned char *bytes) {
     return (bytes[0] << 21) | (bytes[1] << 14) | (bytes[2] << 7) | bytes[3];
 }
 
-unsigned char *read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
-    unsigned char * value = NULL;
+void read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
     unsigned int frame_start = ftell(file);
     while (ftell(file) < tag_size + HEADER_SIZE) {
       char frame_header[10];
@@ -22,7 +22,6 @@ unsigned char *read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
 
       if (strncmp(frame_header, frame_id, 4) == 0) {
           unsigned int frame_size = syncsafe_to_int((unsigned char *)frame_header + 4);
-          printf("%s: ", frame_id);
 
           unsigned char *data = malloc(frame_size + 1);
           fread(data, 1, frame_size, file);
@@ -30,8 +29,9 @@ unsigned char *read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
 
           // Skip encoding byte
           if (data[0] == 0x03) {
-            printf("%s\n", data + 1);
-            value =  (unsigned char *) (data + 1);
+            memcpy(Value, data, (frame_size + 1));
+            fseek(file, frame_start, SEEK_SET);
+            return;
           }else if (data[0] == 0x01) {
             // use iconv header to parser utf 16
             iconv_t cd = iconv_open("UTF-8", "UTF-16LE"); // define the conversion
@@ -43,11 +43,13 @@ unsigned char *read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
 
             iconv(cd, &in_buf, &in_bytes, &out_ptr, &out_bytes); // do the conversion
             iconv_close(cd);
-            printf("%s\n", out_buf);
-            value = (unsigned char *) out_ptr;
+            memcpy(Value, out_buf, out_bytes);
+            fseek(file, frame_start, SEEK_SET);
+            return;
           } else {
-            printf("%s\n", data + 1);
-            value = (unsigned char *) (data + 1);
+            memcpy(Value, data, (frame_size + 1));
+            fseek(file, frame_start, SEEK_SET);
+            return;
           }
 
           free(data);
@@ -58,7 +60,7 @@ unsigned char *read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
       }
     }
     fseek(file, frame_start, SEEK_SET);
-    return value;
+    Value[0] = '\0';
 }
 
 void read_id3v2(const char *filename) {
@@ -80,9 +82,12 @@ void read_id3v2(const char *filename) {
     unsigned int tag_size = syncsafe_to_int((unsigned char *)header + 6);
     printf("Tag Size: %u bytes\n", tag_size);
 
-    Artist = read_frame(file, "TIT2", tag_size);  // Title
-    Album = read_frame(file, "TALB", tag_size);
-    Artist = read_frame(file, "TPE1", tag_size);  // Artist
+    read_frame(file, "TIT2", tag_size);  // Title
+    memcpy(Title, Value, sizeof(Value));
+    read_frame(file, "TALB", tag_size);
+    memcpy(Album, Value, sizeof(Value));
+    read_frame(file, "TPE1", tag_size);  // Artist
+    memcpy(Artist, Value, sizeof(Value));
 
     fclose(file);
 }
