@@ -21,8 +21,8 @@ bool read_dir(char * directory)
       return false;
     }
 
-    char full_dir[100];
-    char filename[100];
+    char full_dir[SIZE*3];
+    char filename[SIZE*5];
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
       errno = 0;
@@ -31,7 +31,7 @@ bool read_dir(char * directory)
       if (strcmp(entry->d_name + len - 4, ".mp3") == 0) {
         sprintf(full_dir, "%s%s", directory, entry->d_name);
         read_id3v2(full_dir);
-        sprintf(filename, "%s%s - %s.mp3", full_dir, Artist, Title);
+        sprintf(filename, "%s%s - %s.mp3", directory, Artist, Title);
         if (rename(full_dir, filename) != 0) {
           perror("unable to rename");
           return false;
@@ -51,6 +51,10 @@ int main(int argc, char *argv[]) {
     int i;
     for (i = 0; argv[1][i] != '\0'; i++);
     printf("%s\n", argv[1] + i - 1);
+    if (argc > 2) {
+      printf("too many arguements\n");
+      return 1;
+    }
     if (strcmp(argv[1] + i - 4, ".mp3") == 0) {
       read_id3v2(argv[1]);
       details();

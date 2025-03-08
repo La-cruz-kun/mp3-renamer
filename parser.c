@@ -22,11 +22,25 @@ void sanitize_filename(char * filename)
   char *src = filename;
   char *dst = filename;
   while (*src) {
-    if (*src != '/' && *src != '\\' && isprint(*src) && *src != '\0')
-      *dst++ = *src;
-  src++;
+    if (*src == '/' || *src == '\0') {
+      src++;
+      continue;
+    }
+    *dst++ = *src++;
   }
   *dst = '\0';
+}
+
+void r_file()
+{
+    strncpy((char *)TEMP, (char *)Value, sizeof(TEMP));
+    TEMP[sizeof(TEMP) - 1] = '\0';
+    sanitize_filename((char *)TEMP);
+    if (strlen((char *)TEMP) == 0) {
+      printf("%s\n", Title);
+      fprintf(stderr, "filename invalid after sanitization\n");
+      return;
+    }
 }
 
 void read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
@@ -95,34 +109,15 @@ void read_id3v2(const char *filename) {
     }
 
     unsigned int tag_size = syncsafe_to_int((unsigned char *)header + 6);
-    printf("Tag Size: %u bytes\n", tag_size);
 
     read_frame(file, "TIT2", tag_size);  // Title
-    strncpy((char *)TEMP, (char *)Value, sizeof(TEMP));
-    TEMP[sizeof(TEMP) - 1] = '\0';
-    sanitize_filename((char *)TEMP);
-    if (strlen((char *)TEMP) == 0) {
-      fprintf(stderr, "filename invalid after sanitization\n");
-      return;
-    }
+    r_file();
     memcpy(Title, TEMP, sizeof(TEMP));
     read_frame(file, "TALB", tag_size);
-    strncpy((char *)TEMP, (char *)Value, sizeof(TEMP));
-    TEMP[sizeof(TEMP) - 1] = '\0';
-    sanitize_filename((char *)TEMP);
-    if (strlen((char *)TEMP) == 0) {
-      fprintf(stderr, "filename invalid after sanitization\n");
-      return;
-    }
+    r_file();
     memcpy(Album, TEMP, sizeof(TEMP));
     read_frame(file, "TPE1", tag_size);  // Artist
-    strncpy((char *)TEMP, (char *)Value, sizeof(TEMP));
-    TEMP[sizeof(TEMP) - 1] = '\0';
-    sanitize_filename((char *)TEMP);
-    if (strlen((char *)TEMP) == 0) {
-      fprintf(stderr, "filename invalid after sanitization\n");
-      return;
-    }
+    r_file();
     memcpy(Artist, TEMP, sizeof(TEMP));
 
     fclose(file);
