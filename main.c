@@ -22,20 +22,26 @@ bool read_dir(char * directory)
     }
 
     char full_dir[100];
+    char filename[100];
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
+      errno = 0;
       int len;
       for (len = 0; entry->d_name[len] != '\0'; len++);
       if (strcmp(entry->d_name + len - 4, ".mp3") == 0) {
-        printf("%s\n", entry->d_name);
         sprintf(full_dir, "%s%s", directory, entry->d_name);
         read_id3v2(full_dir);
-        details();
+        sprintf(filename, "%s%s - %s.mp3", full_dir, Artist, Title);
+        if (rename(full_dir, filename) != 0) {
+          perror("unable to rename");
+          return false;
+      }
       }
     }
     if (errno != 0) {
       perror("readdir error");
     }
+    closedir(dir);
     return true;
 }
     

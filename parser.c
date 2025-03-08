@@ -1,17 +1,32 @@
+#include <ctype.h>
 #include <iconv.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define HEADER_SIZE 10
+#define SIZE 100
 
-unsigned char Title[100];
-unsigned char Album[100];
-unsigned char Artist[100];
-unsigned char Value[100] = {0};
+unsigned char Title[SIZE];
+unsigned char Album[SIZE];
+unsigned char Artist[SIZE];
+unsigned char Value[SIZE] = {0};
+unsigned char TEMP[SIZE] = {0};
 
 unsigned int syncsafe_to_int(unsigned char *bytes) {
     return (bytes[0] << 21) | (bytes[1] << 14) | (bytes[2] << 7) | bytes[3];
+}
+
+void sanitize_filename(char * filename)
+{
+  char *src = filename;
+  char *dst = filename;
+  while (*src) {
+    if (*src != '/' && *src != '\\' && isprint(*src) && *src != '\0')
+      *dst++ = *src;
+  src++;
+  }
+  *dst = '\0';
 }
 
 void read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
@@ -29,7 +44,7 @@ void read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
 
           // Skip encoding byte
           if (data[0] == 0x03) {
-            memcpy(Value, data, (frame_size + 1));
+            memcpy(Value, data + 1, (frame_size + 1));
             fseek(file, frame_start, SEEK_SET);
             return;
           }else if (data[0] == 0x01) {
@@ -47,7 +62,7 @@ void read_frame(FILE *file, char *frame_id, unsigned int tag_size) {
             fseek(file, frame_start, SEEK_SET);
             return;
           } else {
-            memcpy(Value, data, (frame_size + 1));
+            memcpy(Value, data + 1, (frame_size + 1));
             fseek(file, frame_start, SEEK_SET);
             return;
           }
@@ -83,11 +98,32 @@ void read_id3v2(const char *filename) {
     printf("Tag Size: %u bytes\n", tag_size);
 
     read_frame(file, "TIT2", tag_size);  // Title
-    memcpy(Title, Value, sizeof(Value));
+    strncpy((char *)TEMP, (char *)Value, sizeof(TEMP));
+    TEMP[sizeof(TEMP) - 1] = '\0';
+    sanitize_filename((char *)TEMP);
+    if (strlen((char *)TEMP) == 0) {
+      fprintf(stderr, "filename invalid after sanitization\n");
+      return;
+    }
+    memcpy(Title, TEMP, sizeof(TEMP));
     read_frame(file, "TALB", tag_size);
-    memcpy(Album, Value, sizeof(Value));
+    strncpy((char *)TEMP, (char *)Value, sizeof(TEMP));
+    TEMP[sizeof(TEMP) - 1] = '\0';
+    sanitize_filename((char *)TEMP);
+    if (strlen((char *)TEMP) == 0) {
+      fprintf(stderr, "filename invalid after sanitization\n");
+      return;
+    }
+    memcpy(Album, TEMP, sizeof(TEMP));
     read_frame(file, "TPE1", tag_size);  // Artist
-    memcpy(Artist, Value, sizeof(Value));
+    strncpy((char *)TEMP, (char *)Value, sizeof(TEMP));
+    TEMP[sizeof(TEMP) - 1] = '\0';
+    sanitize_filename((char *)TEMP);
+    if (strlen((char *)TEMP) == 0) {
+      fprintf(stderr, "filename invalid after sanitization\n");
+      return;
+    }
+    memcpy(Artist, TEMP, sizeof(TEMP));
 
     fclose(file);
 }
